@@ -1,13 +1,27 @@
 /**
- * Backbone-tastypie.js 0.1
+ * Backbone-tastypie.js 0..0
  * (c) 2011 Paul Uithol
- * 
+ *
  * Backbone-tastypie may be freely distributed under the MIT license.
  * Add or override Backbone.js functionality, for compatibility with django-tastypie.
+ * Depends on Backbone (and thus on Underscore as well): https://github.com/documentcloud/backbone.
  */
-(function( undefined ) {
-	var Backbone = this.Backbone;
-	
+( function( root, factory ) {
+	// Set up Backbone-relational for the environment. Start with AMD.
+	if ( typeof define === 'function' && define.amd ) {
+		define( [ 'exports', 'backbone', 'underscore' ], factory );
+	}
+	// Next for Node.js or CommonJS.
+	else if ( typeof exports !== 'undefined' ) {
+		factory( exports, require( 'backbone' ), require( 'underscore' ) );
+	}
+	// Finally, as a browser global. Use `root` here as it references `window`.
+	else {
+		factory( root, root.Backbone, root._ );
+	}
+}( this, function( exports, Backbone, _ ) {
+	"use strict";
+
 	/**
 	 * Override Backbone's sync function, to do a GET upon receiving a HTTP CREATED.
 	 * This requires 2 requests to do a create, so you may want to use some other method in production.
@@ -17,7 +31,7 @@
 	Backbone.sync = function( method, model, options ) {
 		if ( method === 'create' ) {
 			var dfd = new $.Deferred();
-			
+
 			// Set up 'success' handling
 			dfd.done( options.success );
 			options.success = function( resp, status, xhr ) {
@@ -35,45 +49,45 @@
 					return dfd.resolveWith( options.context || options, [ resp, status, xhr ] );
 				}
 			};
-			
+
 			// Set up 'error' handling
 			dfd.fail( options.error );
 			options.error = function( xhr, status, resp ) {
 				dfd.rejectWith( options.context || options, [ xhr, status, resp ] );
 			};
-			
-			// Make the request, make it accessibly by assigning it to the 'request' property on the deferred 
+
+			// Make the request, make it accessibly by assigning it to the 'request' property on the deferred
 			dfd.request = Backbone.oldSync( method, model, options );
 			return dfd;
 		}
-		
+
 		return Backbone.oldSync( method, model, options );
 	};
 
 	Backbone.Model.prototype.idAttribute = 'resource_uri';
-	
+
 	Backbone.Model.prototype.url = function() {
 		// Use the id if possible
 		var url = this.id;
-		
+
 		// If there's no idAttribute, try to have the collection construct a url. Fallback to 'urlRoot'.
 		if ( !url ) {
 			url = this.collection && ( _.isFunction( this.collection.url ) ? this.collection.url() : this.collection.url );
 			url = url || this.urlRoot;
 		}
-		
+
 		url && ( url += ( url.length > 0 && url.charAt( url.length - 1 ) === '/' ) ? '' : '/' );
-		
+
 		return url;
 	};
-	
+
 	/**
 	 * Return the first entry in 'data.objects' if it exists and is an array, or else just plain 'data'.
 	 */
 	Backbone.Model.prototype.parse = function( data ) {
 		return data && data.objects && ( _.isArray( data.objects ) ? data.objects[ 0 ] : data.objects ) || data;
 	};
-	
+
 	/**
 	 * Return 'data.objects' if it exists.
 	 * If present, the 'data.meta' object is assigned to the 'collection.meta' var.
@@ -82,14 +96,14 @@
 		if ( data && data.meta ) {
 			this.meta = data.meta;
 		}
-		
+
 		return data && data.objects;
 	};
-	
+
 	Backbone.Collection.prototype.url = function( models ) {
 		var url = this.urlRoot || ( models && models.length && models[0].urlRoot );
 		url && ( url += ( url.length > 0 && url.charAt( url.length - 1 ) === '/' ) ? '' : '/' );
-		
+
 		// Build a url to retrieve a set of models. This assume the last part of each model's idAttribute
 		// (set to 'resource_uri') contains the model's id.
 		if ( models && models.length ) {
@@ -99,7 +113,7 @@
 				});
 			url += 'set/' + ids.join(';') + '/';
 		}
-		
+
 		return url;
 	};
-})();
+}));
